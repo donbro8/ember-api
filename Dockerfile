@@ -4,7 +4,8 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 COPY pyproject.toml ./
 COPY src/ src/
 ARG PIP_EXTRA_INDEX_URL=""
-RUN sed -i '/\[tool.uv.sources\]/,/^$/d' pyproject.toml && \
+RUN grep -v 'tool.uv.sources\|editable = true\|path = "\.\.' pyproject.toml > pyproject.clean.toml && \
+    mv pyproject.clean.toml pyproject.toml && \
     uv pip install --system --extra-index-url "${PIP_EXTRA_INDEX_URL}" .
 
 FROM python:3.11-slim
