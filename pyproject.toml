@@ -1,0 +1,32 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ember-bio-api"
+version = "0.1.0"
+description = "FastAPI service for Ember Bio"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=2.0",
+    "ember-bio-shared==0.1.0",
+    "ember-bio-agents==0.1.0",
+    "ember-bio-data==0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ember_api"]
+
+[tool.uv.sources]
+ember-bio-shared = { path = "../ember-shared", editable = true }
+ember-bio-data = { path = "../ember-data", editable = true }
+ember-bio-agents = { path = "../ember-agents", editable = true }

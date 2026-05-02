@@ -1,0 +1,35 @@
+# ember-api
+
+## What this package does
+
+Thin FastAPI HTTP layer for the Ember Bio platform. Handles request validation,
+auth middleware, CORS, and SSE streaming of agent responses. All domain logic
+comes from imported packages (ember-agents, ember-data, ember-shared).
+
+## Key modules
+
+- `main.py` — FastAPI app entry point
+- `routes/` — HTTP route handlers (chat, search, reports, health)
+- `middleware/` — Auth middleware (Phase 2)
+- `deps.py` — FastAPI dependency injection
+
+## How to run tests
+
+```bash
+uv sync --extra dev
+uv run pytest --cov
+```
+
+## How to run the server
+
+```bash
+uv run uvicorn ember_api.main:app --reload
+```
+
+## Conventions
+
+- Stateless — session state lives in a database, not API memory
+- SSE streaming for agent responses
+- Depends on ember-shared, ember-data, and ember-agents
+- Dockerfile is a placeholder until EB4
+- Lint with ruff: `uv run ruff check src/ tests/`
