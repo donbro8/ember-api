@@ -1,9 +1,11 @@
 FROM python:3.11-slim AS builder
 WORKDIR /build
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 COPY src/ src/
-RUN uv pip install --system .
+ARG PIP_EXTRA_INDEX_URL=""
+RUN sed -i '/\[tool.uv.sources\]/,/^$/d' pyproject.toml && \
+    uv pip install --system --extra-index-url "${PIP_EXTRA_INDEX_URL}" .
 
 FROM python:3.11-slim
 WORKDIR /app
