@@ -33,3 +33,13 @@ uv run uvicorn ember_api.main:app --reload
 - Depends on ember-shared, ember-data, and ember-agents
 - Dockerfile is a placeholder until EB4
 - Lint with ruff: `uv run ruff check src/ tests/`
+
+## Agent Routing (3 agents)
+
+| Role | Agent File | Tier Class | When to Use |
+|---|---|---|---|
+| module-architect | `.claude/agents/module-architect.md` | architect | API design, route architecture, middleware patterns |
+| implementer | `.claude/agents/implementer.md` | implementer | Route implementation, middleware coding, tests |
+| reviewer | `.claude/agents/reviewer.md` | reviewer | API review, REST contract compliance, security checks |
+
+Selection rule: SMA dispatches the appropriate agent based on task type. Module-architect for design tasks, implementer for coding tasks, reviewer for review tasks.
