@@ -7,6 +7,7 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     message: str
+    agent: str = "discovery"
 
 
 class ChatResponse(BaseModel):
@@ -15,7 +16,7 @@ class ChatResponse(BaseModel):
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    agent = get_agent("discovery")
+    agent = get_agent(request.agent)
     chunks = []
     async for chunk in agent.run(request.message):
         chunks.append(chunk)
