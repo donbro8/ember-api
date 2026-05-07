@@ -24,7 +24,8 @@ jobs:
       - name: Build and push
         run: |
           REGISTRY="${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ember-bio-docker"
-          EXTRA_INDEX="https://us-central1-python.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ember-bio-python/simple/"
+          TOKEN=$(gcloud auth print-access-token)
+          EXTRA_INDEX="https://oauth2accesstoken:${TOKEN}@${{ vars.GCP_REGION }}-python.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ember-bio-python/simple/"
           docker build \
             --build-arg PIP_EXTRA_INDEX_URL="$EXTRA_INDEX" \
             -t "$REGISTRY/api:${{ github.sha }}" \

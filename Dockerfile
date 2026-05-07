@@ -6,7 +6,8 @@ COPY src/ src/
 ARG PIP_EXTRA_INDEX_URL=""
 RUN grep -v 'tool.uv.sources\|editable = true\|path = "\.\.' pyproject.toml > pyproject.clean.toml && \
     mv pyproject.clean.toml pyproject.toml && \
-    uv pip install --system --extra-index-url "${PIP_EXTRA_INDEX_URL}" .
+    uv pip install --system --index-url "https://pypi.org/simple/" \
+      --extra-index-url "${PIP_EXTRA_INDEX_URL}" .
 
 FROM python:3.11-slim
 WORKDIR /app
