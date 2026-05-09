@@ -1,11 +1,151 @@
+import logging
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from ember_shared import setup_logging, settings
-from .routes import health, chat
+from .routes import health, query as query_router
 
 setup_logging(level=settings.LOG_LEVEL, json_format=settings.LOG_JSON_FORMAT)
 
-app = FastAPI(title="Ember Bio API")
+logger = logging.getLogger(__name__)
+
+
+def _build_ember_agent():  # noqa: C901
+    """Construct EmberAgent with all dependencies.
+
+    Returns the agent on success.  Returns None if a critical dependency is
+    unavailable, logging a warning so the API starts in degraded mode.
+    """
+    try:
+        from ember_agents.agent import EmberAgent
+        from ember_agents.search.interpret import IntentExtractor
+        from ember_agents.search.classify import ClassificationOrchestrator
+        from ember_agents.search.gate import SearchGate
+        from ember_agents.search.fetch import FetchOrchestrator
+        from ember_agents.search.match import MatchScorer
+        from ember_agents.search.seed_source import BiologicSeedSource
+    except ImportError as exc:
+        logger.warning("ember-agents not available — running in degraded mode: %s", exc)
+        return None
+
+    # --- resolvers (from ember-data) ---
+    try:
+        from ember_data.classification.atc_resolver import ATCResolver
+        from ember_data.classification.mesh_resolver import MeSHResolver
+        from ember_data.classification.uniprot_resolver import UniProtResolver
+        from ember_data.classification.modality_resolver import ModalityResolver
+
+        atc_resolver = ATCResolver()
+        mesh_resolver = MeSHResolver()
+        uniprot_resolver = UniProtResolver()
+        modality_resolver = ModalityResolver()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Resolver construction failed — running in degraded mode: %s", exc)
+        return None
+
+    # --- IntentExtractor ---
+    try:
+        intent_extractor = IntentExtractor()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("IntentExtractor unavailable — running in degraded mode: %s", exc)
+        return None
+
+    # --- ClassificationOrchestrator ---
+    try:
+        classifier = ClassificationOrchestrator(
+            uniprot_resolver=uniprot_resolver,
+            modality_resolver=modality_resolver,
+            mesh_resolver=mesh_resolver,
+            atc_resolver=atc_resolver,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ClassificationOrchestrator unavailable — running in degraded mode: %s", exc)
+        return None
+
+    # --- SearchGate ---
+    try:
+        class _NullEstimator:
+            async def estimate(self, spec) -> int:
+                return 0
+
+        class _NullNarrowingProvider:
+            async def get_options(self, dimension, spec) -> list:
+                return []
+
+        gate = SearchGate(
+            estimator=_NullEstimator(),
+            narrowing_provider=_NullNarrowingProvider(),
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("SearchGate unavailable — running in degraded mode: %s", exc)
+        return None
+
+    # --- FetchOrchestrator ---
+    try:
+        bq_project = getattr(settings, "GCP_PROJECT_ID", None)
+        fetcher = FetchOrchestrator(bq_project_id=bq_project)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("FetchOrchestrator unavailable — running in degraded mode: %s", exc)
+        return None
+
+    # --- BiologicSeedSource ---
+    try:
+        import importlib.resources as pkg_resources
+        import pathlib
+
+        # Try to locate biologic_reference.json from ember_data package
+        try:
+            seed_ref = pkg_resources.files("ember_data.seed").joinpath("biologic_reference.json")
+            seed_path = pathlib.Path(str(seed_ref))
+        except Exception:  # noqa: BLE001
+            seed_path = None
+
+        if seed_path is None or not seed_path.exists():
+            logger.warning("biologic_reference.json not found — BiologicSeedSource unavailable")
+            return None
+
+        seed_source = BiologicSeedSource(seed_path)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("BiologicSeedSource unavailable — running in degraded mode: %s", exc)
+        return None
+
+    # --- MatchScorer ---
+    try:
+        scorer = MatchScorer(
+            atc_resolver=atc_resolver,
+            uniprot_resolver=uniprot_resolver,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("MatchScorer unavailable — running in degraded mode: %s", exc)
+        return None
+
+    try:
+        agent = EmberAgent(
+            intent_extractor=intent_extractor,
+            classifier=classifier,
+            gate=gate,
+            fetcher=fetcher,
+            scorer=scorer,
+            seed_source=seed_source,
+        )
+        logger.info("EmberAgent wired successfully")
+        return agent
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("EmberAgent construction failed — running in degraded mode: %s", exc)
+        return None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    agent = _build_ember_agent()
+    if agent is None:
+        logger.warning("EmberAgent unavailable — /query endpoint will return errors")
+    app.state.ember_agent = agent
+    yield
+
+
+app = FastAPI(title="Ember Bio API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,4 +156,4 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(chat.router)
+app.include_router(query_router.router)
