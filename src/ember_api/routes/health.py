@@ -101,6 +101,13 @@ def health_check(request: Request) -> dict[str, Any]:
         result_store_ok = False
     services["result_store"] = "ok" if result_store_ok else "unavailable"
 
+    # Watch store
+    try:
+        watch_store_status = "ok" if request.app.state.watch_store is not None else "unavailable"
+    except AttributeError:
+        watch_store_status = "unavailable"
+    services["watch_store"] = watch_store_status
+
     # Also check app.state.ember_agent (wired at startup)
     agent_ready_from_state: bool = False
     try:

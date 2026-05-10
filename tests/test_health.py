@@ -177,3 +177,34 @@ def test_health_result_store_unavailable_when_writer_none(client_with_agent):
         response = client_with_agent.get("/health")
     data = response.json()
     assert data["services"]["result_store"] == "unavailable"
+
+
+def test_health_services_includes_watch_store(client_with_agent):
+    """watch_store key is present in services dict."""
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert "watch_store" in data["services"]
+
+
+def test_health_watch_store_ok_when_wired(client_with_agent):
+    """watch_store reports 'ok' when watch_store is wired."""
+    from unittest.mock import MagicMock
+    app.state.watch_store = MagicMock()
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert data["services"]["watch_store"] == "ok"
+    app.state.watch_store = None
+
+
+def test_health_watch_store_unavailable_when_none(client_with_agent):
+    """watch_store reports 'unavailable' when watch_store is None."""
+    app.state.watch_store = None
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert data["services"]["watch_store"] == "unavailable"

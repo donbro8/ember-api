@@ -1,4 +1,6 @@
 import logging
+from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request, Response
@@ -131,3 +133,128 @@ def delete_watch(request: Request, watch_id: str) -> Response:
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Watch '{watch_id}' not found")
     return Response(status_code=204)
+
+
+@router.post("/watches/{watch_id}/run")
+async def run_watch(request: Request, watch_id: str) -> dict[str, Any]:
+    """Manually trigger a watch run."""
+    # 1. Get required state
+    try:
+        watch_store = request.app.state.watch_store
+    except AttributeError:
+        watch_store = None
+    if watch_store is None:
+        raise HTTPException(status_code=503, detail="Watch store not available — service is degraded")
+
+    try:
+        agent = request.app.state.ember_agent
+    except AttributeError:
+        agent = None
+    if agent is None:
+        raise HTTPException(status_code=503, detail="Agent not available — service is degraded")
+
+    try:
+        result_writer = request.app.state.result_writer
+    except AttributeError:
+        result_writer = None
+    if result_writer is None:
+        raise HTTPException(status_code=503, detail="Result writer not available — service is degraded")
+
+    # 2. Get watch config
+    watch = watch_store.get(watch_id)
+    if watch is None:
+        raise HTTPException(status_code=404, detail=f"Watch '{watch_id}' not found")
+
+    # 3. Rate limit: max 3 runs per 24h
+    try:
+        result_reader = request.app.state.result_reader
+    except AttributeError:
+        result_reader = None
+
+    if result_reader is not None:
+        try:
+            recent_runs = result_reader.list_runs(watch_id, 10)
+            now = datetime.now(tz=timezone.utc)
+            runs_in_24h = 0
+            for run in recent_runs:
+                created_at = getattr(run, "created_at", None) or (run.get("created_at") if isinstance(run, dict) else None)
+                if created_at is not None:
+                    if isinstance(created_at, str):
+                        try:
+                            created_at = datetime.fromisoformat(created_at)
+                        except ValueError:
+                            continue
+                    if created_at.tzinfo is None:
+                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    if (now - created_at).total_seconds() < 86400:
+                        runs_in_24h += 1
+            if runs_in_24h >= 3:
+                raise HTTPException(
+                    status_code=429,
+                    detail="Rate limit exceeded: maximum 3 manual runs per 24 hours",
+                )
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to check rate limit for watch '%s': %s", watch_id, exc)
+
+    # 4. Execute the agent
+    output = await agent.execute(watch.query)
+
+    # 5. Best-effort write result
+    try:
+        result_writer.write_run(
+            run_id=output.run_id,
+            query=watch.query,
+            query_type=output.query_type,
+            results=output.results,
+            trace=output.trace,
+            markdown=output.markdown,
+            watch_id=watch_id,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to write run result for watch '%s': %s", watch_id, exc)
+
+    # 6. Best-effort record run on watch store
+    try:
+        watch_store.record_run(watch_id, output.run_id)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to record run on watch store for watch '%s': %s", watch_id, exc)
+
+    return {"run_id": output.run_id, "cached": False}
+
+
+@router.get("/watches/{watch_id}/changes")
+def get_watch_changes(request: Request, watch_id: str, limit: int = 50) -> dict[str, Any]:
+    """Get change history for a watch."""
+    # Check change_detector availability
+    try:
+        change_detector = request.app.state.change_detector
+    except AttributeError:
+        change_detector = None
+    if change_detector is None:
+        raise HTTPException(status_code=503, detail="Change detector not available — service is degraded")
+
+    # Check watch exists
+    try:
+        watch_store = request.app.state.watch_store
+    except AttributeError:
+        watch_store = None
+    if watch_store is None:
+        raise HTTPException(status_code=503, detail="Watch store not available — service is degraded")
+
+    watch = watch_store.get(watch_id)
+    if watch is None:
+        raise HTTPException(status_code=404, detail=f"Watch '{watch_id}' not found")
+
+    changes = change_detector.get_changes(watch_id, limit)
+
+    def _serialize_change(c: Any) -> dict[str, Any]:
+        d = asdict(c)
+        # Convert datetime fields to ISO strings for JSON serialization
+        for key, val in d.items():
+            if isinstance(val, datetime):
+                d[key] = val.isoformat()
+        return d
+
+    return {"changes": [_serialize_change(c) for c in changes]}

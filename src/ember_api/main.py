@@ -188,6 +188,18 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # noqa: BLE001
         logger.warning("WatchStore unavailable: %s", exc)
 
+    app.state.change_detector = None
+    try:
+        from ember_data.bigquery.change_detector import ChangeDetector
+
+        if bq_client is not None:
+            app.state.change_detector = ChangeDetector(bq_client, bq_dataset)
+            logger.info("ChangeDetector wired successfully")
+        else:
+            logger.warning("ChangeDetector unavailable: BigQuery client not initialised")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ChangeDetector unavailable: %s", exc)
+
     yield
 
 
