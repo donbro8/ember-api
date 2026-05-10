@@ -69,13 +69,12 @@ def test_get_results_no_reader_returns_503(client_no_reader):
     assert response.status_code == 503
 
 
-def test_get_results_unknown_run_id_returns_empty(client_with_reader):
-    """If get_run returns None, results should be an empty list."""
+def test_get_results_unknown_run_id_returns_404(client_with_reader):
+    """If get_run returns None, endpoint should return 404."""
     client, mock_reader = client_with_reader
     mock_reader.get_run.return_value = None
     response = client.get("/results", params={"run_id": "nonexistent"})
-    assert response.status_code == 200
-    assert response.json()["results"] == []
+    assert response.status_code == 404
 
 
 # ---------------------------------------------------------------------------

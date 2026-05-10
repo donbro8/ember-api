@@ -22,8 +22,9 @@ def get_results(
         raise HTTPException(status_code=503, detail="Result store not available — service is degraded")
 
     run = result_reader.get_run(run_id)
-    results = run.results if run is not None else []
-    return {"results": results}
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+    return {"results": run}
 
 
 @router.get("/runs")

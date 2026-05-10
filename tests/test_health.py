@@ -155,3 +155,25 @@ def test_health_services_dict_has_expected_keys(client_with_agent):
     assert "google_api_key" in services
     assert "biologic_reference" in services
     assert "gemini" in services
+    assert "result_store" in services
+
+
+def test_health_result_store_ok_when_writer_available(client_with_agent):
+    """result_store reports 'ok' when result_writer is wired."""
+    app.state.result_writer = MagicMock()
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert data["services"]["result_store"] == "ok"
+    app.state.result_writer = None
+
+
+def test_health_result_store_unavailable_when_writer_none(client_with_agent):
+    """result_store reports 'unavailable' when result_writer is None."""
+    app.state.result_writer = None
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert data["services"]["result_store"] == "unavailable"
