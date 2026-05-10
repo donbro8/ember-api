@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from ember_shared import setup_logging, settings
-from .routes import health, query as query_router, results as results_router
+from .routes import health, query as query_router, results as results_router, watches as watches_router
 
 setup_logging(level=settings.LOG_LEVEL, json_format=settings.LOG_JSON_FORMAT)
 
@@ -139,12 +139,13 @@ def _build_ember_agent():  # noqa: C901
 def _build_result_store():
     """Construct ResultWriter and ResultReader instances.
 
-    Returns (writer, reader) on success, or (None, None) if BigQuery is unavailable.
+    Returns (writer, reader, client, dataset) on success, or (None, None, None, None)
+    if BigQuery is unavailable.
     """
     bq_project = getattr(settings, "GCP_PROJECT_ID", None)
     if not bq_project:
         logger.warning("GCP_PROJECT_ID not set — result store unavailable")
-        return None, None
+        return None, None, None, None
 
     try:
         from ember_data.bigquery.client import BigQueryClient
@@ -155,13 +156,13 @@ def _build_result_store():
         writer = ResultWriter(client=client, dataset=dataset)
         reader = ResultReader(client=client, dataset=dataset)
         logger.info("ResultWriter and ResultReader wired successfully")
-        return writer, reader
+        return writer, reader, client, dataset
     except ImportError as exc:
         logger.warning("ember-data result store not available — result persistence disabled: %s", exc)
-        return None, None
+        return None, None, None, None
     except Exception as exc:  # noqa: BLE001
         logger.warning("Result store construction failed — result persistence disabled: %s", exc)
-        return None, None
+        return None, None, None, None
 
 
 @asynccontextmanager
@@ -171,9 +172,22 @@ async def lifespan(app: FastAPI):
         logger.warning("EmberAgent unavailable — /query endpoint will return errors")
     app.state.ember_agent = agent
 
-    result_writer, result_reader = _build_result_store()
+    result_writer, result_reader, bq_client, bq_dataset = _build_result_store()
     app.state.result_writer = result_writer
     app.state.result_reader = result_reader
+
+    app.state.watch_store = None
+    try:
+        from ember_data.bigquery.watch_store import WatchStore
+
+        if bq_client is not None:
+            app.state.watch_store = WatchStore(bq_client, bq_dataset)
+            logger.info("WatchStore wired successfully")
+        else:
+            logger.warning("WatchStore unavailable: BigQuery client not initialised")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("WatchStore unavailable: %s", exc)
+
     yield
 
 
@@ -190,3 +204,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(query_router.router)
 app.include_router(results_router.router)
+app.include_router(watches_router.router)
