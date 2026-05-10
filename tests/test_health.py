@@ -208,3 +208,38 @@ def test_health_watch_store_unavailable_when_none(client_with_agent):
         response = client_with_agent.get("/health")
     data = response.json()
     assert data["services"]["watch_store"] == "unavailable"
+
+
+# ---------------------------------------------------------------------------
+# Tests: synthesizer status
+# ---------------------------------------------------------------------------
+
+
+def test_health_services_includes_synthesizer(client_with_agent):
+    """synthesizer key is present in services dict."""
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert "synthesizer" in data["services"]
+
+
+def test_health_synthesizer_ok_when_available(client_with_agent):
+    """synthesizer reports 'ok' when synthesizer_available is True."""
+    app.state.synthesizer_available = True
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert data["services"]["synthesizer"] == "ok"
+    app.state.synthesizer_available = False
+
+
+def test_health_synthesizer_unavailable_when_false(client_with_agent):
+    """synthesizer reports 'unavailable' when synthesizer_available is False."""
+    app.state.synthesizer_available = False
+    patches = _patch_checks()
+    with patches[0], patches[1], patches[2], patches[3]:
+        response = client_with_agent.get("/health")
+    data = response.json()
+    assert data["services"]["synthesizer"] == "unavailable"

@@ -31,6 +31,7 @@ def _make_mock_agent(output_chunks: list[str]) -> MagicMock:
     output.results = []
     output.trace = {}
     output.query_type = "search"
+    output.synthesis_overview = None
 
     agent = MagicMock()
 

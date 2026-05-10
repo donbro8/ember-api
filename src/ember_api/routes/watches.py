@@ -258,4 +258,20 @@ def get_watch_changes(request: Request, watch_id: str, limit: int = 50) -> dict[
                 d[key] = val.isoformat()
         return d
 
-    return {"changes": [_serialize_change(c) for c in changes]}
+    # Best-effort: fetch change_summary from the latest run for this watch
+    change_summary: str | None = None
+    try:
+        result_reader = request.app.state.result_reader
+    except AttributeError:
+        result_reader = None
+
+    if result_reader is not None:
+        try:
+            recent_runs = result_reader.list_runs(watch_id, 1)
+            if recent_runs:
+                latest_run = recent_runs[0]
+                change_summary = getattr(latest_run, "change_summary", None)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("Failed to fetch change_summary for watch '%s': %s", watch_id, exc)
+
+    return {"changes": [_serialize_change(c) for c in changes], "change_summary": change_summary}

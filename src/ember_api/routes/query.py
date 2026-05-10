@@ -15,6 +15,7 @@ class QueryResponse(BaseModel):
     response: str
     run_id: str
     cached: bool
+    synthesis_overview: str | None = None
 
 
 @router.post("/query", response_model=QueryResponse)
@@ -69,4 +70,5 @@ async def query(request: Request, body: QueryRequest):
         response=output.markdown,
         run_id=output.run_id,
         cached=False,
+        synthesis_overview=getattr(output, "synthesis_overview", None),
     )

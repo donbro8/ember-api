@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from ember_shared import setup_logging, settings
-from .routes import health, query as query_router, results as results_router, watches as watches_router
+from .routes import digest as digest_router, health, query as query_router, results as results_router, watches as watches_router
 
 setup_logging(level=settings.LOG_LEVEL, json_format=settings.LOG_JSON_FORMAT)
 
@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 def _build_ember_agent():  # noqa: C901
     """Construct EmberAgent with all dependencies.
 
-    Returns the agent on success.  Returns None if a critical dependency is
-    unavailable, logging a warning so the API starts in degraded mode.
+    Returns ``(agent, synthesizer_available)`` on success, or ``None`` if a
+    critical dependency is unavailable (the API starts in degraded mode).
     """
     try:
         from ember_agents.agent import EmberAgent
@@ -120,6 +120,16 @@ def _build_ember_agent():  # noqa: C901
         logger.warning("MatchScorer unavailable — running in degraded mode: %s", exc)
         return None
 
+    # --- ResultSynthesizer (optional) ---
+    synthesizer = None
+    try:
+        from ember_agents.synthesis import ResultSynthesizer
+
+        synthesizer = ResultSynthesizer()
+        logger.info("ResultSynthesizer wired successfully")
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("ResultSynthesizer unavailable — synthesis disabled: %s", exc)
+
     try:
         agent = EmberAgent(
             intent_extractor=intent_extractor,
@@ -128,9 +138,10 @@ def _build_ember_agent():  # noqa: C901
             fetcher=fetcher,
             scorer=scorer,
             seed_source=seed_source,
+            synthesizer=synthesizer,
         )
         logger.info("EmberAgent wired successfully")
-        return agent
+        return agent, synthesizer is not None
     except Exception as exc:  # noqa: BLE001
         logger.warning("EmberAgent construction failed — running in degraded mode: %s", exc)
         return None
@@ -167,10 +178,15 @@ def _build_result_store():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    agent = _build_ember_agent()
-    if agent is None:
+    build_result = _build_ember_agent()
+    if build_result is None:
         logger.warning("EmberAgent unavailable — /query endpoint will return errors")
-    app.state.ember_agent = agent
+        app.state.ember_agent = None
+        app.state.synthesizer_available = False
+    else:
+        agent, synthesizer_available = build_result
+        app.state.ember_agent = agent
+        app.state.synthesizer_available = synthesizer_available
 
     result_writer, result_reader, bq_client, bq_dataset = _build_result_store()
     app.state.result_writer = result_writer
@@ -214,6 +230,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(digest_router.router)
 app.include_router(query_router.router)
 app.include_router(results_router.router)
 app.include_router(watches_router.router)

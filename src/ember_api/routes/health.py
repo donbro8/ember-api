@@ -115,6 +115,13 @@ def health_check(request: Request) -> dict[str, Any]:
         change_detector_ok = False
     services["change_detector"] = "ok" if change_detector_ok else "unavailable"
 
+    # Synthesizer
+    try:
+        synthesizer_ok = request.app.state.synthesizer_available
+    except AttributeError:
+        synthesizer_ok = False
+    services["synthesizer"] = "ok" if synthesizer_ok else "unavailable"
+
     # Also check app.state.ember_agent (wired at startup)
     agent_ready_from_state: bool = False
     try:

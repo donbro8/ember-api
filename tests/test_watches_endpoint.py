@@ -465,3 +465,31 @@ def test_get_changes_no_detector_returns_503(client_with_store):
     app.state.change_detector = None
     response = client.get("/watches/watch-001/changes")
     assert response.status_code == 503
+
+
+def test_get_changes_includes_change_summary(client_with_changes):
+    """changes response includes change_summary from latest run."""
+    client, _, _ = client_with_changes
+
+    # Wire a result_reader that returns a run with change_summary
+    mock_reader = MagicMock()
+    latest_run = MagicMock()
+    latest_run.change_summary = "2 new drugs added, 1 removed"
+    mock_reader.list_runs.return_value = [latest_run]
+    app.state.result_reader = mock_reader
+
+    response = client.get("/watches/watch-001/changes")
+    data = response.json()
+    assert "change_summary" in data
+    assert data["change_summary"] == "2 new drugs added, 1 removed"
+
+
+def test_get_changes_change_summary_null_when_no_reader(client_with_changes):
+    """change_summary is null when result_reader is not available."""
+    client, _, _ = client_with_changes
+    app.state.result_reader = None
+
+    response = client.get("/watches/watch-001/changes")
+    data = response.json()
+    assert "change_summary" in data
+    assert data["change_summary"] is None

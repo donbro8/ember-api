@@ -5,13 +5,14 @@ from fastapi.testclient import TestClient
 from ember_api.main import app
 
 
-def _make_pipeline_output(run_id="run-123", markdown="Result data", cached=False):
+def _make_pipeline_output(run_id="run-123", markdown="Result data", cached=False, synthesis_overview="Overview of results"):
     output = MagicMock()
     output.run_id = run_id
     output.markdown = markdown
     output.results = []
     output.trace = {}
     output.query_type = "search"
+    output.synthesis_overview = synthesis_overview
     return output
 
 
@@ -141,3 +142,34 @@ def test_query_write_failure_does_not_block():
     assert response.status_code == 200
     data = response.json()
     assert data["cached"] is False
+
+
+def test_query_returns_synthesis_overview(client):
+    """POST /query response includes synthesis_overview from agent output."""
+    response = client.post("/query", json={"query": "PD-1 inhibitors"})
+    assert response.status_code == 200
+    data = response.json()
+    assert "synthesis_overview" in data
+    assert data["synthesis_overview"] == "Overview of results"
+
+
+def test_query_cached_response_has_null_synthesis_overview():
+    """When response is served from cache, synthesis_overview should be None."""
+    cached_run = MagicMock()
+    cached_run.markdown = "Cached response"
+    cached_run.run_id = "cached-run-456"
+
+    mock_reader = MagicMock()
+    mock_reader.get_cached.return_value = cached_run
+
+    with TestClient(app) as c:
+        app.state.ember_agent = _mock_agent()
+        app.state.result_writer = None
+        app.state.result_reader = mock_reader
+
+        response = c.post("/query", json={"query": "PD-1 inhibitors"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["cached"] is True
+    assert data["synthesis_overview"] is None
