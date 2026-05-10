@@ -163,7 +163,7 @@ def _build_result_store():
         from ember_data.bigquery.result_store import ResultWriter, ResultReader
 
         dataset = getattr(settings, "BQ_RESULTS_DATASET", "ember_results")
-        client = BigQueryClient(project=bq_project)
+        client = BigQueryClient(project_id=bq_project, managed_dataset=dataset)
         writer = ResultWriter(client=client, dataset=dataset)
         reader = ResultReader(client=client, dataset=dataset)
         logger.info("ResultWriter and ResultReader wired successfully")
