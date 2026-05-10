@@ -72,6 +72,45 @@ def _check_external_endpoint(url: str) -> str:
         return f"unavailable: {exc}"
 
 
+def _is_enrichment_enabled() -> bool:
+    """Check whether enrichment is enabled via env var."""
+    val = os.environ.get("ENRICHMENT_ENABLED", "").strip().lower()
+    return val in {"1", "true", "yes"}
+
+
+def _get_enrichment_info() -> dict[str, Any]:
+    """Build enrichment section for the health response."""
+    enabled = _is_enrichment_enabled()
+    if not enabled:
+        return {"enabled": False}
+
+    try:
+        from datetime import date
+
+        from ember_data.seed import load_versioned_seed
+
+        seed = load_versioned_seed()
+        current_year = date.today().year
+        stale_count = sum(
+            1
+            for e in seed.entries
+            if e.revenue_year is not None and e.revenue_year < current_year - 1
+        )
+        info: dict[str, Any] = {
+            "enabled": True,
+            "data_version": seed.data_version,
+            "last_enrichment_run": (
+                seed.last_enrichment_run.isoformat()
+                if seed.last_enrichment_run
+                else None
+            ),
+            "stale_entries_count": stale_count,
+        }
+        return info
+    except Exception as exc:  # noqa: BLE001
+        return {"enabled": True, "status": "error", "detail": str(exc)}
+
+
 @router.get("/health")
 def health_check(request: Request) -> dict[str, Any]:
     services: dict[str, str] = {}
@@ -140,11 +179,15 @@ def health_check(request: Request) -> dict[str, Any]:
 
     overall_status = "ok" if agent_ready else "degraded"
 
+    # Enrichment info
+    enrichment_info = _get_enrichment_info()
+
     result: dict[str, Any] = {
         "status": overall_status,
         "agent_ready": agent_ready,
         "services": services,
         "env": settings.ENV,
+        "enrichment": enrichment_info,
     }
     if degraded_reason:
         result["degraded_reason"] = degraded_reason
