@@ -42,5 +42,5 @@ def get_runs(
     if result_reader is None:
         raise HTTPException(status_code=503, detail="Result store not available — service is degraded")
 
-    runs = result_reader.list_runs(watch_id, limit)
+    runs = result_reader.list_runs(watch_id, limit or 20)
     return {"runs": runs}
