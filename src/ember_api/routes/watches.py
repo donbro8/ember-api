@@ -112,10 +112,11 @@ def update_watch(request: Request, watch_id: str, body: UpdateWatchRequest) -> d
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Watch '{watch_id}' not found")
 
-    # Validate schedule_day if provided
+    # Validate schedule_day against effective schedule
     effective_schedule = body.schedule if body.schedule is not None else getattr(existing, "schedule", None)
-    if body.schedule_day is not None and effective_schedule is not None:
-        _validate_schedule_day(effective_schedule, body.schedule_day)
+    effective_schedule_day = body.schedule_day if body.schedule_day is not None else getattr(existing, "schedule_day", None)
+    if effective_schedule_day is not None and effective_schedule is not None:
+        _validate_schedule_day(effective_schedule, effective_schedule_day)
 
     # Build update kwargs from non-None fields
     updates = {k: v for k, v in body.model_dump().items() if v is not None}
