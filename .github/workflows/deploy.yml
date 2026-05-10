@@ -38,4 +38,4 @@ jobs:
             --image ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ember-bio-docker/api:${{ github.sha }} \
             --region ${{ vars.GCP_REGION }} \
             --allow-unauthenticated \
-            --set-env-vars="ENV=dev,GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }},GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}"
+            --set-env-vars="ENV=dev,GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID }},GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }},BQ_RESULTS_DATASET=ember_dev"
