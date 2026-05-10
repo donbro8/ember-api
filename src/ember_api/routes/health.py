@@ -94,6 +94,13 @@ def health_check(request: Request) -> dict[str, Any]:
         svc for svc in CRITICAL_SERVICES if services.get(svc, "unavailable") != "ok"
     ]
 
+    # result_store availability (wired at startup)
+    try:
+        result_store_ok = request.app.state.result_writer is not None
+    except AttributeError:
+        result_store_ok = False
+    services["result_store"] = "ok" if result_store_ok else "unavailable"
+
     # Also check app.state.ember_agent (wired at startup)
     agent_ready_from_state: bool = False
     try:

@@ -1,8 +1,8 @@
 """Integration tests for POST /query using EmberAgent.
 
 All external dependencies are mocked via app.state.ember_agent.
-The tests exercise the /query endpoint end-to-end by mocking EmberAgent.run()
-as an async generator that yields the expected markdown output strings.
+The tests exercise the /query endpoint end-to-end by mocking EmberAgent.execute()
+returning a PipelineOutput-like object with the expected markdown output.
 """
 
 from __future__ import annotations
@@ -17,19 +17,27 @@ client = TestClient(app)
 
 
 # ---------------------------------------------------------------------------
-# Helper to create an async generator mock for EmberAgent.run()
+# Helper to create an async mock for EmberAgent.execute()
 # ---------------------------------------------------------------------------
 
 
 def _make_mock_agent(output_chunks: list[str]) -> MagicMock:
-    """Return a mock EmberAgent whose run() yields the given chunks."""
+    """Return a mock EmberAgent whose execute() returns a PipelineOutput-like object."""
+    markdown = "".join(output_chunks)
 
-    async def _async_gen(*args, **kwargs):
-        for chunk in output_chunks:
-            yield chunk
+    output = MagicMock()
+    output.run_id = "test-run-id"
+    output.markdown = markdown
+    output.results = []
+    output.trace = {}
+    output.query_type = "search"
 
     agent = MagicMock()
-    agent.run = _async_gen
+
+    async def async_execute(query):
+        return output
+
+    agent.execute = async_execute
     return agent
 
 
@@ -50,6 +58,8 @@ def test_simple_query_end_to_end():
         "**Overall:** 0.820\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post("/query", json={"query": "EGFR inhibitors for NSCLC"})
 
     assert response.status_code == 200
@@ -71,6 +81,8 @@ def test_response_includes_source_provenance():
         "**Contributing Sources:** ClinicalTrials.gov, PubMed\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post("/query", json={"query": "HER2 biosimilars"})
 
     assert response.status_code == 200
@@ -92,6 +104,8 @@ def test_disambiguation_flow():
         "Search is **paused** pending your selection.\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post(
         "/query", json={"query": "VEGF inhibitors for oncology"}
     )
@@ -115,6 +129,8 @@ def test_gate_narrowing_too_broad():
         "Search is **paused** pending your selection.\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post("/query", json={"query": "all biologic drugs"})
 
     assert response.status_code == 200
@@ -138,6 +154,8 @@ def test_patent_not_yet_expired_window():
         "**Evidence:** 3 patents from USPTO.\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post(
         "/query",
         json={"query": "VEGF inhibitors for colorectal cancer with patents not expired yet"},
@@ -163,6 +181,8 @@ def test_multiple_ranked_candidates_ordering():
         "**Overall score:** 0.45\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post("/query", json={"query": "PD-1 antibodies"})
 
     assert response.status_code == 200
@@ -183,6 +203,8 @@ def test_synthesis_summary_present():
         "Summary for DrugS.\n"
     )
     app.state.ember_agent = _make_mock_agent([output])
+    app.state.result_reader = None
+    app.state.result_writer = None
     response = client.post("/query", json={"query": "CD20 antibodies"})
 
     assert response.status_code == 200
