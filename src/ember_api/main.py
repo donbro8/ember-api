@@ -229,6 +229,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request, exc):
+    import traceback
+
+    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc)
+    logger.error("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
+    from starlette.responses import JSONResponse
+
+    return JSONResponse(status_code=500, content={"detail": str(exc)})
+
+
 app.include_router(health.router)
 app.include_router(digest_router.router)
 app.include_router(query_router.router)
