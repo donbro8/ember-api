@@ -136,6 +136,7 @@ def test_digest_returns_structured_output(client_with_stores):
     assert "period_end" in data
     assert "top_opportunities" in data
     assert "stable_watches" in data
+    assert "dashboard" in data
 
 
 def test_digest_period_dates_are_iso_strings(client_with_stores):
@@ -156,6 +157,44 @@ def test_digest_per_watch_section(client_with_stores):
     section = data["per_watch"][0]
     assert section["watch_name"] == "Test Watch"
     assert section["change_count"] == 1
+
+
+def test_digest_includes_aggregate_dashboard_payload(client_with_stores):
+    client, _, _, mock_reader, mock_gen = client_with_stores
+
+    result = MagicMock()
+    result.drug_name = "Drug A"
+    result.source = "pubmed"
+    result.suppression_metadata = {"suppressed": True}
+    mock_reader.get_run.return_value = [result]
+
+    latest_run = MagicMock()
+    latest_run.run_id = "run-aaa"
+    latest_run.change_summary = "One new drug found"
+    latest_run.status = "completed"
+    mock_reader.list_runs.return_value = [latest_run]
+
+    with patch("ember_agents.synthesis.DigestGenerator", return_value=mock_gen):
+        response = client.get("/digest?period_days=7")
+    data = response.json()
+
+    dashboard = data["dashboard"]
+    assert dashboard["top_opportunities"] == data["top_opportunities"]
+    assert "recent_changes" in dashboard
+    assert "per_watch_latest_results" in dashboard
+    assert "source_counts" in dashboard
+    assert "status_counts" in dashboard
+    assert "suppressed_count" in dashboard
+    assert "links" in dashboard
+    assert dashboard["source_counts"]["pubmed"] == 1
+    assert dashboard["status_counts"]["completed"] == 1
+    assert dashboard["suppressed_count"] == 1
+
+    latest = dashboard["per_watch_latest_results"][0]
+    assert latest["watch_id"] == "watch-001"
+    assert latest["latest_run_id"] == "run-aaa"
+    assert latest["watch_link"] == "/watches/watch-001"
+    assert latest["run_link"] == "/results?run_id=run-aaa"
 
 
 def test_digest_calls_generator_with_period_days(client_with_stores):
