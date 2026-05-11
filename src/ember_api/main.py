@@ -5,7 +5,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from ember_shared import setup_logging, settings
-from .routes import digest as digest_router, health, query as query_router, results as results_router, watches as watches_router
+from .routes import (
+    digest as digest_router,
+    health,
+    query as query_router,
+    results as results_router,
+    watches as watches_router,
+)
 
 setup_logging(level=settings.LOG_LEVEL, json_format=settings.LOG_JSON_FORMAT)
 
@@ -42,14 +48,18 @@ def _build_ember_agent():  # noqa: C901
         uniprot_resolver = UniProtResolver()
         modality_resolver = ModalityResolver()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Resolver construction failed — running in degraded mode: %s", exc)
+        logger.warning(
+            "Resolver construction failed — running in degraded mode: %s", exc
+        )
         return None
 
     # --- IntentExtractor ---
     try:
         intent_extractor = IntentExtractor()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("IntentExtractor unavailable — running in degraded mode: %s", exc)
+        logger.warning(
+            "IntentExtractor unavailable — running in degraded mode: %s", exc
+        )
         return None
 
     # --- ClassificationOrchestrator ---
@@ -61,11 +71,14 @@ def _build_ember_agent():  # noqa: C901
             atc_resolver=atc_resolver,
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning("ClassificationOrchestrator unavailable — running in degraded mode: %s", exc)
+        logger.warning(
+            "ClassificationOrchestrator unavailable — running in degraded mode: %s", exc
+        )
         return None
 
     # --- SearchGate ---
     try:
+
         class _NullEstimator:
             async def estimate(self, spec) -> int:
                 return 0
@@ -87,7 +100,9 @@ def _build_ember_agent():  # noqa: C901
         bq_project = getattr(settings, "GCP_PROJECT_ID", None)
         fetcher = FetchOrchestrator(bq_project_id=bq_project)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("FetchOrchestrator unavailable — running in degraded mode: %s", exc)
+        logger.warning(
+            "FetchOrchestrator unavailable — running in degraded mode: %s", exc
+        )
         return None
 
     # --- BiologicSeedSource ---
@@ -97,18 +112,24 @@ def _build_ember_agent():  # noqa: C901
 
         # Try to locate biologic_reference.json from ember_data package
         try:
-            seed_ref = pkg_resources.files("ember_data.seed").joinpath("biologic_reference.json")
+            seed_ref = pkg_resources.files("ember_data.seed").joinpath(
+                "biologic_reference.json"
+            )
             seed_path = pathlib.Path(str(seed_ref))
         except Exception:  # noqa: BLE001
             seed_path = None
 
         if seed_path is None or not seed_path.exists():
-            logger.warning("biologic_reference.json not found — BiologicSeedSource unavailable")
+            logger.warning(
+                "biologic_reference.json not found — BiologicSeedSource unavailable"
+            )
             return None
 
         seed_source = BiologicSeedSource(seed_path)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("BiologicSeedSource unavailable — running in degraded mode: %s", exc)
+        logger.warning(
+            "BiologicSeedSource unavailable — running in degraded mode: %s", exc
+        )
         return None
 
     # --- MatchScorer ---
@@ -144,7 +165,9 @@ def _build_ember_agent():  # noqa: C901
         logger.info("EmberAgent wired successfully")
         return agent, synthesizer is not None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("EmberAgent construction failed — running in degraded mode: %s", exc)
+        logger.warning(
+            "EmberAgent construction failed — running in degraded mode: %s", exc
+        )
         return None
 
 
@@ -163,17 +186,25 @@ def _build_result_store():
         from ember_data.bigquery.client import BigQueryClient
         from ember_data.bigquery.result_store import ResultWriter, ResultReader
 
-        dataset = os.environ.get("BQ_RESULTS_DATASET", getattr(settings, "BQ_RESULTS_DATASET", "ember_results"))
+        dataset = os.environ.get(
+            "BQ_RESULTS_DATASET",
+            getattr(settings, "BQ_RESULTS_DATASET", "ember_results"),
+        )
         client = BigQueryClient(project_id=bq_project, managed_dataset=dataset)
         writer = ResultWriter(client=client, dataset=dataset)
         reader = ResultReader(client=client, dataset=dataset)
         logger.info("ResultWriter and ResultReader wired successfully")
         return writer, reader, client, dataset
     except ImportError as exc:
-        logger.warning("ember-data result store not available — result persistence disabled: %s", exc)
+        logger.warning(
+            "ember-data result store not available — result persistence disabled: %s",
+            exc,
+        )
         return None, None, None, None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Result store construction failed — result persistence disabled: %s", exc)
+        logger.warning(
+            "Result store construction failed — result persistence disabled: %s", exc
+        )
         return None, None, None, None
 
 
@@ -213,7 +244,9 @@ async def lifespan(app: FastAPI):
             app.state.change_detector = ChangeDetector(bq_client, bq_dataset)
             logger.info("ChangeDetector wired successfully")
         else:
-            logger.warning("ChangeDetector unavailable: BigQuery client not initialised")
+            logger.warning(
+                "ChangeDetector unavailable: BigQuery client not initialised"
+            )
     except Exception as exc:  # noqa: BLE001
         logger.warning("ChangeDetector unavailable: %s", exc)
 
@@ -235,7 +268,9 @@ app.add_middleware(
 async def _unhandled_exception_handler(request, exc):
     import traceback
 
-    logger.error("Unhandled exception on %s %s: %s", request.method, request.url.path, exc)
+    logger.error(
+        "Unhandled exception on %s %s: %s", request.method, request.url.path, exc
+    )
     logger.error("".join(traceback.format_exception(type(exc), exc, exc.__traceback__)))
     from starlette.responses import JSONResponse
 

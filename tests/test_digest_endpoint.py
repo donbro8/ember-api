@@ -203,7 +203,15 @@ def test_digest_calls_generator_with_period_days(client_with_stores):
         client.get("/digest?period_days=14")
     mock_gen.generate_digest.assert_called_once()
     _, kwargs = mock_gen.generate_digest.call_args
-    assert kwargs.get("period_days", mock_gen.generate_digest.call_args[0][1] if len(mock_gen.generate_digest.call_args[0]) > 1 else None) == 14
+    assert (
+        kwargs.get(
+            "period_days",
+            mock_gen.generate_digest.call_args[0][1]
+            if len(mock_gen.generate_digest.call_args[0]) > 1
+            else None,
+        )
+        == 14
+    )
 
 
 def test_digest_default_period_days(client_with_stores):

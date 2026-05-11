@@ -75,7 +75,9 @@ def get_results(
         result_reader = None
 
     if result_reader is None:
-        raise HTTPException(status_code=503, detail="Result store not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Result store not available — service is degraded"
+        )
 
     run = result_reader.get_run(run_id)
     if run is None:
@@ -86,7 +88,9 @@ def get_results(
         raw_results = list(raw_results)
 
     if isinstance(raw_results, list):
-        serialized_results = [_serialize_with_optional_explanations(item) for item in raw_results]
+        serialized_results = [
+            _serialize_with_optional_explanations(item) for item in raw_results
+        ]
     else:
         serialized_results = raw_results
 
@@ -106,7 +110,9 @@ def get_runs(
         result_reader = None
 
     if result_reader is None:
-        raise HTTPException(status_code=503, detail="Result store not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Result store not available — service is degraded"
+        )
 
     runs = result_reader.list_runs(watch_id, limit or 20)
     serialized_runs = [_serialize_with_optional_explanations(run) for run in runs]

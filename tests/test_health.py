@@ -41,12 +41,19 @@ _GEMINI_DOWN_SERVICES = {
 }
 
 
-def _patch_checks(bigquery="ok", google_api_key="ok", biologic_reference="ok", gemini="ok"):
+def _patch_checks(
+    bigquery="ok", google_api_key="ok", biologic_reference="ok", gemini="ok"
+):
     """Return a context-manager stack that patches all individual check functions."""
     return [
         patch("ember_api.routes.health._check_bigquery", return_value=bigquery),
-        patch("ember_api.routes.health._check_google_api_key", return_value=google_api_key),
-        patch("ember_api.routes.health._check_biologic_reference", return_value=biologic_reference),
+        patch(
+            "ember_api.routes.health._check_google_api_key", return_value=google_api_key
+        ),
+        patch(
+            "ember_api.routes.health._check_biologic_reference",
+            return_value=biologic_reference,
+        ),
         patch(
             "ember_api.routes.health._check_external_endpoint",
             return_value=gemini,
@@ -191,6 +198,7 @@ def test_health_services_includes_watch_store(client_with_agent):
 def test_health_watch_store_ok_when_wired(client_with_agent):
     """watch_store reports 'ok' when watch_store is wired."""
     from unittest.mock import MagicMock
+
     app.state.watch_store = MagicMock()
     patches = _patch_checks()
     with patches[0], patches[1], patches[2], patches[3]:

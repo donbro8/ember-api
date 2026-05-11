@@ -33,7 +33,9 @@ def _get_watch_store(request: Request):
     except AttributeError:
         store = None
     if store is None:
-        raise HTTPException(status_code=503, detail="Watch store not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Watch store not available — service is degraded"
+        )
     return store
 
 
@@ -98,13 +100,17 @@ def get_watch(request: Request, watch_id: str) -> dict[str, Any]:
         try:
             recent_runs = result_reader.list_runs(watch_id, 10)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to fetch recent runs for watch '%s': %s", watch_id, exc)
+            logger.warning(
+                "Failed to fetch recent runs for watch '%s': %s", watch_id, exc
+            )
 
     return {"watch": watch, "recent_runs": recent_runs}
 
 
 @router.patch("/watches/{watch_id}")
-def update_watch(request: Request, watch_id: str, body: UpdateWatchRequest) -> dict[str, Any]:
+def update_watch(
+    request: Request, watch_id: str, body: UpdateWatchRequest
+) -> dict[str, Any]:
     """Partially update a watch config."""
     watch_store = _get_watch_store(request)
 
@@ -113,8 +119,16 @@ def update_watch(request: Request, watch_id: str, body: UpdateWatchRequest) -> d
         raise HTTPException(status_code=404, detail=f"Watch '{watch_id}' not found")
 
     # Validate schedule_day against effective schedule
-    effective_schedule = body.schedule if body.schedule is not None else getattr(existing, "schedule", None)
-    effective_schedule_day = body.schedule_day if body.schedule_day is not None else getattr(existing, "schedule_day", None)
+    effective_schedule = (
+        body.schedule
+        if body.schedule is not None
+        else getattr(existing, "schedule", None)
+    )
+    effective_schedule_day = (
+        body.schedule_day
+        if body.schedule_day is not None
+        else getattr(existing, "schedule_day", None)
+    )
     if effective_schedule_day is not None and effective_schedule is not None:
         _validate_schedule_day(effective_schedule, effective_schedule_day)
 
@@ -145,21 +159,27 @@ async def run_watch(request: Request, watch_id: str) -> dict[str, Any]:
     except AttributeError:
         watch_store = None
     if watch_store is None:
-        raise HTTPException(status_code=503, detail="Watch store not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Watch store not available — service is degraded"
+        )
 
     try:
         agent = request.app.state.ember_agent
     except AttributeError:
         agent = None
     if agent is None:
-        raise HTTPException(status_code=503, detail="Agent not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Agent not available — service is degraded"
+        )
 
     try:
         result_writer = request.app.state.result_writer
     except AttributeError:
         result_writer = None
     if result_writer is None:
-        raise HTTPException(status_code=503, detail="Result writer not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Result writer not available — service is degraded"
+        )
 
     # 2. Get watch config
     watch = watch_store.get(watch_id)
@@ -178,7 +198,9 @@ async def run_watch(request: Request, watch_id: str) -> dict[str, Any]:
             now = datetime.now(tz=timezone.utc)
             runs_in_24h = 0
             for run in recent_runs:
-                created_at = getattr(run, "created_at", None) or (run.get("created_at") if isinstance(run, dict) else None)
+                created_at = getattr(run, "created_at", None) or (
+                    run.get("created_at") if isinstance(run, dict) else None
+                )
                 if created_at is not None:
                     if isinstance(created_at, str):
                         try:
@@ -197,7 +219,9 @@ async def run_watch(request: Request, watch_id: str) -> dict[str, Any]:
         except HTTPException:
             raise
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to check rate limit for watch '%s': %s", watch_id, exc)
+            logger.warning(
+                "Failed to check rate limit for watch '%s': %s", watch_id, exc
+            )
 
     # 4. Execute the agent
     output = await agent.execute(watch.query)
@@ -220,13 +244,17 @@ async def run_watch(request: Request, watch_id: str) -> dict[str, Any]:
     try:
         watch_store.record_run(watch_id, output.run_id)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Failed to record run on watch store for watch '%s': %s", watch_id, exc)
+        logger.warning(
+            "Failed to record run on watch store for watch '%s': %s", watch_id, exc
+        )
 
     return {"run_id": output.run_id, "cached": False}
 
 
 @router.get("/watches/{watch_id}/changes")
-def get_watch_changes(request: Request, watch_id: str, limit: int = 50) -> dict[str, Any]:
+def get_watch_changes(
+    request: Request, watch_id: str, limit: int = 50
+) -> dict[str, Any]:
     """Get change history for a watch."""
     # Check change_detector availability
     try:
@@ -234,7 +262,10 @@ def get_watch_changes(request: Request, watch_id: str, limit: int = 50) -> dict[
     except AttributeError:
         change_detector = None
     if change_detector is None:
-        raise HTTPException(status_code=503, detail="Change detector not available — service is degraded")
+        raise HTTPException(
+            status_code=503,
+            detail="Change detector not available — service is degraded",
+        )
 
     # Check watch exists
     try:
@@ -242,7 +273,9 @@ def get_watch_changes(request: Request, watch_id: str, limit: int = 50) -> dict[
     except AttributeError:
         watch_store = None
     if watch_store is None:
-        raise HTTPException(status_code=503, detail="Watch store not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Watch store not available — service is degraded"
+        )
 
     watch = watch_store.get(watch_id)
     if watch is None:
@@ -272,6 +305,11 @@ def get_watch_changes(request: Request, watch_id: str, limit: int = 50) -> dict[
                 latest_run = recent_runs[0]
                 change_summary = getattr(latest_run, "change_summary", None)
         except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to fetch change_summary for watch '%s': %s", watch_id, exc)
+            logger.warning(
+                "Failed to fetch change_summary for watch '%s': %s", watch_id, exc
+            )
 
-    return {"changes": [_serialize_change(c) for c in changes], "change_summary": change_summary}
+    return {
+        "changes": [_serialize_change(c) for c in changes],
+        "change_summary": change_summary,
+    }

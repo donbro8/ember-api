@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 from ember_api.main import app
 
 
-def _make_pipeline_output(run_id="run-123", markdown="Result data", cached=False, synthesis_overview="Overview of results"):
+def _make_pipeline_output(
+    run_id="run-123",
+    markdown="Result data",
+    cached=False,
+    synthesis_overview="Overview of results",
+):
     output = MagicMock()
     output.run_id = run_id
     output.markdown = markdown

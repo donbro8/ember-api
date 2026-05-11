@@ -22,7 +22,9 @@ class QueryResponse(BaseModel):
 async def query(request: Request, body: QueryRequest):
     agent = request.app.state.ember_agent
     if agent is None:
-        raise HTTPException(status_code=503, detail="Agent not available — service is degraded")
+        raise HTTPException(
+            status_code=503, detail="Agent not available — service is degraded"
+        )
 
     # Check cache first
     try:

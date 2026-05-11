@@ -94,7 +94,10 @@ def test_get_results_exposes_patent_and_regulatory_context_fields(client_with_re
             "title": "Result one",
             "patent_expiry_derivation_method": "family_latest_priority_plus_term",
             "data_exclusivity": {"us_bla": "2036-01-20"},
-            "framework_regulatory_context": {"scope": "framework-level", "verified_per_product_dates": False},
+            "framework_regulatory_context": {
+                "scope": "framework-level",
+                "verified_per_product_dates": False,
+            },
             "jurisdictions": {"US": {"patent_expiry_date": "2035-12-14"}},
             "missing_jurisdictions": ["JP"],
             "unknown_jurisdictions": ["BR"],
@@ -102,7 +105,9 @@ def test_get_results_exposes_patent_and_regulatory_context_fields(client_with_re
     ]
     response = client.get("/results", params={"run_id": "run-abc"})
     result = response.json()["results"][0]
-    assert result["patent_expiry_derivation_method"] == "family_latest_priority_plus_term"
+    assert (
+        result["patent_expiry_derivation_method"] == "family_latest_priority_plus_term"
+    )
     assert result["data_exclusivity"] == {"us_bla": "2036-01-20"}
     assert result["framework_regulatory_context"] == {
         "scope": "framework-level",
@@ -155,7 +160,9 @@ def test_get_results_remains_compatible_when_explanations_absent(client_with_rea
     assert "missing_jurisdictions" not in result
 
 
-def test_get_results_allows_missing_jurisdiction_indicators_without_absence_claim(client_with_reader):
+def test_get_results_allows_missing_jurisdiction_indicators_without_absence_claim(
+    client_with_reader,
+):
     client, mock_reader = client_with_reader
     mock_reader.get_run.return_value = [
         {

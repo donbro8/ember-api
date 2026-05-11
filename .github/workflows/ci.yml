@@ -27,6 +27,6 @@ jobs:
           uv sync --extra dev --no-sources \
             --extra-index-url "https://oauth2accesstoken:$(gcloud auth print-access-token)@${{ vars.GCP_REGION }}-python.pkg.dev/${{ vars.GCP_PROJECT_ID }}/ember-bio-python/simple/"
 
-      - run: uv run ruff check src/ tests/
-      - run: uv run ruff format --check src/ tests/
-      - run: uv run pytest --cov
+      - run: uv run --no-sources ruff check src/ tests/
+      - run: uv run --no-sources ruff format --check src/ tests/
+      - run: uv run --no-sources pytest --cov

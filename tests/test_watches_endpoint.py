@@ -11,6 +11,7 @@ from ember_api.main import app
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_watch(watch_id: str = "watch-001", name: str = "Test Watch") -> MagicMock:
     w = MagicMock()
     w.watch_id = watch_id
@@ -26,6 +27,7 @@ def _make_watch(watch_id: str = "watch-001", name: str = "Test Watch") -> MagicM
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def client_with_store():
@@ -63,35 +65,45 @@ def client_no_store():
 # POST /watches
 # ---------------------------------------------------------------------------
 
+
 def test_post_watch_returns_201(client_with_store):
     client, mock_store, _ = client_with_store
-    response = client.post("/watches", json={
-        "name": "My Watch",
-        "query": "SELECT 1",
-        "schedule": "weekly",
-        "schedule_day": 1,
-    })
+    response = client.post(
+        "/watches",
+        json={
+            "name": "My Watch",
+            "query": "SELECT 1",
+            "schedule": "weekly",
+            "schedule_day": 1,
+        },
+    )
     assert response.status_code == 201
 
 
 def test_post_watch_calls_create(client_with_store):
     client, mock_store, _ = client_with_store
-    client.post("/watches", json={
-        "name": "My Watch",
-        "query": "SELECT 1",
-        "schedule": "weekly",
-    })
+    client.post(
+        "/watches",
+        json={
+            "name": "My Watch",
+            "query": "SELECT 1",
+            "schedule": "weekly",
+        },
+    )
     mock_store.create.assert_called_once()
 
 
 def test_post_watch_returns_watch_key(client_with_store):
     client, mock_store, _ = client_with_store
-    response = client.post("/watches", json={
-        "name": "My Watch",
-        "query": "SELECT 1",
-        "schedule": "monthly",
-        "schedule_day": 15,
-    })
+    response = client.post(
+        "/watches",
+        json={
+            "name": "My Watch",
+            "query": "SELECT 1",
+            "schedule": "monthly",
+            "schedule_day": 15,
+        },
+    )
     data = response.json()
     assert "watch" in data
 
@@ -99,49 +111,62 @@ def test_post_watch_returns_watch_key(client_with_store):
 def test_post_watch_invalid_schedule_day_weekly_returns_422(client_with_store):
     client, _, _ = client_with_store
     # schedule_day=7 is out of range for weekly (0–6)
-    response = client.post("/watches", json={
-        "name": "Bad Watch",
-        "query": "SELECT 1",
-        "schedule": "weekly",
-        "schedule_day": 7,
-    })
+    response = client.post(
+        "/watches",
+        json={
+            "name": "Bad Watch",
+            "query": "SELECT 1",
+            "schedule": "weekly",
+            "schedule_day": 7,
+        },
+    )
     assert response.status_code == 422
 
 
 def test_post_watch_invalid_schedule_day_monthly_returns_422(client_with_store):
     client, _, _ = client_with_store
     # schedule_day=0 is out of range for monthly (1–31)
-    response = client.post("/watches", json={
-        "name": "Bad Watch",
-        "query": "SELECT 1",
-        "schedule": "monthly",
-        "schedule_day": 0,
-    })
+    response = client.post(
+        "/watches",
+        json={
+            "name": "Bad Watch",
+            "query": "SELECT 1",
+            "schedule": "monthly",
+            "schedule_day": 0,
+        },
+    )
     assert response.status_code == 422
 
 
 def test_post_watch_invalid_schedule_value_returns_422(client_with_store):
     client, _, _ = client_with_store
-    response = client.post("/watches", json={
-        "name": "Bad Watch",
-        "query": "SELECT 1",
-        "schedule": "daily",
-    })
+    response = client.post(
+        "/watches",
+        json={
+            "name": "Bad Watch",
+            "query": "SELECT 1",
+            "schedule": "daily",
+        },
+    )
     assert response.status_code == 422
 
 
 def test_post_watch_no_store_returns_503(client_no_store):
-    response = client_no_store.post("/watches", json={
-        "name": "My Watch",
-        "query": "SELECT 1",
-        "schedule": "weekly",
-    })
+    response = client_no_store.post(
+        "/watches",
+        json={
+            "name": "My Watch",
+            "query": "SELECT 1",
+            "schedule": "weekly",
+        },
+    )
     assert response.status_code == 503
 
 
 # ---------------------------------------------------------------------------
 # GET /watches
 # ---------------------------------------------------------------------------
+
 
 def test_get_watches_returns_200(client_with_store):
     client, _, _ = client_with_store
@@ -165,6 +190,7 @@ def test_get_watches_no_store_returns_503(client_no_store):
 # ---------------------------------------------------------------------------
 # GET /watches/{watch_id}
 # ---------------------------------------------------------------------------
+
 
 def test_get_watch_returns_200(client_with_store):
     client, _, _ = client_with_store
@@ -203,6 +229,7 @@ def test_get_watch_no_store_returns_503(client_no_store):
 # PATCH /watches/{watch_id}
 # ---------------------------------------------------------------------------
 
+
 def test_patch_watch_returns_200(client_with_store):
     client, _, _ = client_with_store
     response = client.patch("/watches/watch-001", json={"name": "Updated"})
@@ -238,6 +265,7 @@ def test_patch_watch_no_store_returns_503(client_no_store):
 # DELETE /watches/{watch_id}
 # ---------------------------------------------------------------------------
 
+
 def test_delete_watch_returns_204(client_with_store):
     client, _, _ = client_with_store
     response = client.delete("/watches/watch-001")
@@ -259,6 +287,7 @@ def test_delete_watch_no_store_returns_503(client_no_store):
 # ---------------------------------------------------------------------------
 # POST /watches/{watch_id}/run
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture()
 def client_with_agent():
@@ -365,6 +394,7 @@ def test_run_watch_rate_limit_429(client_with_agent):
 def test_run_watch_rate_limit_allows_old_runs(client_with_agent):
     """Runs older than 24h should not count toward the rate limit."""
     from datetime import timedelta
+
     client, _, mock_reader, _, _ = client_with_agent
     now = datetime.now(tz=timezone.utc)
     # 3 runs but all older than 24h
@@ -381,6 +411,7 @@ def test_run_watch_rate_limit_allows_old_runs(client_with_agent):
 # ---------------------------------------------------------------------------
 # GET /watches/{watch_id}/changes
 # ---------------------------------------------------------------------------
+
 
 @dataclasses.dataclass
 class _FakeChangeEntry:

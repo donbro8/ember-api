@@ -12,8 +12,8 @@ dependencies = [
     "uvicorn>=0.20.0",
     "pydantic>=2.0",
     "ember-bio-shared>=0.1.1",
-    "ember-bio-agents>=0.1.10",
-    "ember-bio-data>=0.1.6",
+    "ember-bio-agents>=0.2.1",
+    "ember-bio-data>=0.2.2",
 ]
 
 [project.optional-dependencies]

@@ -100,8 +100,12 @@ async def get_digest(
             changes = []
         for change in changes:
             change_id = getattr(change, "change_id", None)
-            summary = getattr(change, "summary", None) or getattr(change, "description", None)
-            changed_at = getattr(change, "changed_at", None) or getattr(change, "timestamp", None)
+            summary = getattr(change, "summary", None) or getattr(
+                change, "description", None
+            )
+            changed_at = getattr(change, "changed_at", None) or getattr(
+                change, "timestamp", None
+            )
             recent_changes.append(
                 {
                     "watch_id": watch_id,
@@ -126,7 +130,9 @@ async def get_digest(
                 latest_run_id = getattr(latest_run, "run_id", None)
                 latest_status = getattr(latest_run, "status", None)
                 if isinstance(latest_status, str) and latest_status:
-                    status_counts[latest_status] = status_counts.get(latest_status, 0) + 1
+                    status_counts[latest_status] = (
+                        status_counts.get(latest_status, 0) + 1
+                    )
                 if latest_run_id:
                     try:
                         latest_results = result_reader.get_run(latest_run_id)
@@ -135,9 +141,7 @@ async def get_digest(
                             "Failed to get results for run '%s': %s", latest_run_id, exc
                         )
         except Exception as exc:  # noqa: BLE001
-            logger.warning(
-                "Failed to get runs for watch '%s': %s", watch_id, exc
-            )
+            logger.warning("Failed to get runs for watch '%s': %s", watch_id, exc)
 
         normalized_results: list[Any]
         if latest_results is None:
@@ -172,7 +176,9 @@ async def get_digest(
                 "result_count": len(normalized_results),
                 "suppressed_count": watch_suppressed_count,
                 "watch_link": f"/watches/{watch_id}",
-                "run_link": f"/results?run_id={latest_run_id}" if latest_run_id else None,
+                "run_link": f"/results?run_id={latest_run_id}"
+                if latest_run_id
+                else None,
             }
         )
 

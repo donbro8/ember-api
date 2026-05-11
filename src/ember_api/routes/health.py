@@ -40,7 +40,9 @@ def _check_bigquery() -> str:
 
 def _check_google_api_key() -> str:
     """Return 'ok' if GOOGLE_API_KEY is present, else 'unavailable'."""
-    key = getattr(settings, "GOOGLE_API_KEY", None) or os.environ.get("GOOGLE_API_KEY", "")
+    key = getattr(settings, "GOOGLE_API_KEY", None) or os.environ.get(
+        "GOOGLE_API_KEY", ""
+    )
     if key:
         return "ok"
     return "unavailable: GOOGLE_API_KEY not set"
@@ -49,7 +51,9 @@ def _check_google_api_key() -> str:
 def _check_biologic_reference() -> str:
     """Return 'ok' if biologic_reference.json is loadable, else error string."""
     try:
-        seed_ref = pkg_resources.files("ember_data.seed").joinpath("biologic_reference.json")
+        seed_ref = pkg_resources.files("ember_data.seed").joinpath(
+            "biologic_reference.json"
+        )
         seed_path = pathlib.Path(str(seed_ref))
         if seed_path.exists():
             return "ok"
@@ -142,7 +146,9 @@ def health_check(request: Request) -> dict[str, Any]:
 
     # Watch store
     try:
-        watch_store_status = "ok" if request.app.state.watch_store is not None else "unavailable"
+        watch_store_status = (
+            "ok" if request.app.state.watch_store is not None else "unavailable"
+        )
     except AttributeError:
         watch_store_status = "unavailable"
     services["watch_store"] = watch_store_status

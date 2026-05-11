@@ -107,9 +107,7 @@ def test_disambiguation_flow():
     app.state.ember_agent = _make_mock_agent([output])
     app.state.result_reader = None
     app.state.result_writer = None
-    response = client.post(
-        "/query", json={"query": "VEGF inhibitors for oncology"}
-    )
+    response = client.post("/query", json={"query": "VEGF inhibitors for oncology"})
 
     assert response.status_code == 200
     body = response.json()["response"]
@@ -159,7 +157,9 @@ def test_patent_not_yet_expired_window():
     app.state.result_writer = None
     response = client.post(
         "/query",
-        json={"query": "VEGF inhibitors for colorectal cancer with patents not expired yet"},
+        json={
+            "query": "VEGF inhibitors for colorectal cancer with patents not expired yet"
+        },
     )
 
     assert response.status_code == 200
