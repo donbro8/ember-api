@@ -197,6 +197,33 @@ def test_digest_includes_aggregate_dashboard_payload(client_with_stores):
     assert latest["run_link"] == "/results?run_id=run-aaa"
 
 
+def test_digest_handles_dict_run_rows(client_with_stores):
+    client, _, _, mock_reader, mock_gen = client_with_stores
+
+    result = {"drug_name": "Drug A", "source": "biologic_seed"}
+    mock_reader.get_run.return_value = [result]
+    mock_reader.list_runs.return_value = [
+        {
+            "run_id": "run-dict",
+            "query": "SELECT 1",
+            "query_type": "opportunity_scan",
+            "watch_id": "watch-001",
+            "created_at": "2026-05-11T18:00:00Z",
+            "bytes_scanned": None,
+        }
+    ]
+
+    with patch("ember_agents.synthesis.DigestGenerator", return_value=mock_gen):
+        response = client.get("/digest?period_days=7")
+    data = response.json()
+
+    latest = data["dashboard"]["per_watch_latest_results"][0]
+    assert latest["latest_run_id"] == "run-dict"
+    assert latest["result_count"] == 1
+    assert latest["run_link"] == "/results?run_id=run-dict"
+    assert data["dashboard"]["source_counts"]["biologic_seed"] == 1
+
+
 def test_digest_calls_generator_with_period_days(client_with_stores):
     client, _, _, _, mock_gen = client_with_stores
     with patch("ember_agents.synthesis.DigestGenerator", return_value=mock_gen):

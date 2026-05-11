@@ -19,6 +19,13 @@ def _safe_state(request: Request, attr: str) -> Any:
         return None
 
 
+def _field(obj: Any, name: str, default: Any = None) -> Any:
+    """Read *name* from either a dict row or an object."""
+    if isinstance(obj, dict):
+        return obj.get(name, default)
+    return getattr(obj, name, default)
+
+
 def _extract_source_keys(result: Any) -> set[str]:
     """Extract source identifiers from a result object when present."""
     keys: set[str] = set()
@@ -90,8 +97,8 @@ async def get_digest(
     status_counts: dict[str, int] = {}
     suppressed_count = 0
     for watch in watches:
-        watch_id = getattr(watch, "watch_id", "")
-        watch_name = getattr(watch, "name", "")
+        watch_id = _field(watch, "watch_id", "")
+        watch_name = _field(watch, "name", "")
         # Get recent changes
         try:
             changes = change_detector.get_changes(watch_id, 100)
@@ -99,13 +106,9 @@ async def get_digest(
             logger.warning("Failed to get changes for watch '%s': %s", watch_id, exc)
             changes = []
         for change in changes:
-            change_id = getattr(change, "change_id", None)
-            summary = getattr(change, "summary", None) or getattr(
-                change, "description", None
-            )
-            changed_at = getattr(change, "changed_at", None) or getattr(
-                change, "timestamp", None
-            )
+            change_id = _field(change, "change_id")
+            summary = _field(change, "summary") or _field(change, "description")
+            changed_at = _field(change, "changed_at") or _field(change, "timestamp")
             recent_changes.append(
                 {
                     "watch_id": watch_id,
@@ -126,9 +129,9 @@ async def get_digest(
             runs = result_reader.list_runs(watch_id, 1)
             if runs:
                 latest_run = runs[0]
-                change_summary = getattr(latest_run, "change_summary", None)
-                latest_run_id = getattr(latest_run, "run_id", None)
-                latest_status = getattr(latest_run, "status", None)
+                change_summary = _field(latest_run, "change_summary")
+                latest_run_id = _field(latest_run, "run_id")
+                latest_status = _field(latest_run, "status")
                 if isinstance(latest_status, str) and latest_status:
                     status_counts[latest_status] = (
                         status_counts.get(latest_status, 0) + 1
@@ -185,7 +188,7 @@ async def get_digest(
         digest_inputs.append(
             WatchDigestInput(
                 watch_name=watch_name,
-                query=getattr(watch, "query", ""),
+                query=_field(watch, "query", ""),
                 changes=changes,
                 change_summary=change_summary,
                 latest_results=latest_results,
