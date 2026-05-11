@@ -129,6 +129,31 @@ def test_query_cache_miss_calls_agent():
     mock_writer.write_run.assert_called_once()
 
 
+def test_query_failed_gate_cache_calls_agent():
+    """Cached missing_core_fields responses are stale and should be re-executed."""
+    cached_run = MagicMock()
+    cached_run.markdown = "**Gate outcome:** missing_core_fields"
+    cached_run.run_id = "stale-run-123"
+
+    mock_reader = MagicMock()
+    mock_reader.get_cached.return_value = cached_run
+
+    mock_writer = MagicMock()
+
+    with TestClient(app) as c:
+        app.state.ember_agent = _mock_agent(run_id="fresh-run-789")
+        app.state.result_writer = mock_writer
+        app.state.result_reader = mock_reader
+
+        response = c.post("/query", json={"query": "biosimilar opportunities"})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["cached"] is False
+    assert data["run_id"] == "fresh-run-789"
+    mock_writer.write_run.assert_called_once()
+
+
 def test_query_write_failure_does_not_block():
     """A write_run exception should not cause the endpoint to fail."""
     mock_reader = MagicMock()
